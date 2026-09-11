@@ -46,3 +46,11 @@ def test_parse_course_detail():
     html = load_fixture("course_detail.html")
     course = parse_course_detail(html)
     assert isinstance(course, CourseDetail)
+
+from app.parsers.participants import parse_participants
+
+def test_parse_participants():
+    """Test parse_participants parser."""
+    html = load_fixture("participants.html")
+    participants = parse_participants(html)
+    assert isinstance(participants, list)

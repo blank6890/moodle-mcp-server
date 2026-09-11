@@ -4,13 +4,14 @@ from typing import Optional, Dict, Tuple, Any
 from app.browser import BrowserManager, SessionExpiredError
 from app.config import Config
 from app.models import (
-    Course, Assignment, CalendarEvent, Announcement, CourseDetail
+    Course, Assignment, CalendarEvent, Announcement, CourseDetail, Participant
 )
 from app.parsers import courses as courses_parser
 from app.parsers import assignments as assignments_parser
 from app.parsers import calendar as calendar_parser
 from app.parsers import announcements as announcements_parser
 from app.parsers import course as course_parser
+from app.parsers import participants as participants_parser
 
 logger = logging.getLogger(__name__)
 
@@ -122,5 +123,20 @@ class MoodleService:
             course = course_parser.parse_course_detail(html)
             self._set_cache(cache_key, course)
             return course
+        except SessionExpiredError:
+            raise
+
+    async def get_participants(self, course_id: str) -> list[Participant]:
+        """Get enrolled participants and instructors in a course."""
+        cache_key = f"participants_{course_id}"
+        cached = self._get_cached(cache_key)
+        if cached is not None:
+            return cached
+        
+        try:
+            url, html = await self.browser.navigate(f"https://courses.iiit.ac.in/user/index.php?id={course_id}")
+            participants = participants_parser.parse_participants(html)
+            self._set_cache(cache_key, participants)
+            return participants
         except SessionExpiredError:
             raise
