@@ -135,6 +135,32 @@ def create_mcp_server() -> MCPServer:
             logger.error(f"get_calendar failed: {e}")
             raise
     
+    @server.tool()
+    async def get_course(course_id: str) -> dict:
+        """Get full course detail with sections and resources."""
+        try:
+            await _init_globals()
+            course = await _moodle.get_course_detail(course_id)
+            return course.model_dump()
+        except SessionExpiredError:
+            raise ValueError("Session expired. Run 'python scripts/login.py' to re-authenticate.")
+        except Exception as e:
+            logger.error(f"get_course failed: {e}")
+            raise
+
+    @server.tool()
+    async def get_course_materials(course_id: str) -> list:
+        """Get organized course materials and lectures by section."""
+        try:
+            await _init_globals()
+            course = await _moodle.get_course_detail(course_id)
+            return [s.model_dump() for s in course.sections]
+        except SessionExpiredError:
+            raise ValueError("Session expired. Run 'python scripts/login.py' to re-authenticate.")
+        except Exception as e:
+            logger.error(f"get_course_materials failed: {e}")
+            raise
+
     return server
 
 def main():
