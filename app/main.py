@@ -161,6 +161,19 @@ def create_mcp_server() -> MCPServer:
             logger.error(f"get_course_materials failed: {e}")
             raise
 
+    @server.tool()
+    async def get_announcements(course_id: Optional[str] = None, limit: int = 20) -> list:
+        """Get recent announcements from a course or site-wide."""
+        try:
+            await _init_globals()
+            announcements = await _moodle.get_announcements(course_id, limit)
+            return [a.model_dump() for a in announcements]
+        except SessionExpiredError:
+            raise ValueError("Session expired. Run 'python scripts/login.py' to re-authenticate.")
+        except Exception as e:
+            logger.error(f"get_announcements failed: {e}")
+            raise
+
     return server
 
 def main():
