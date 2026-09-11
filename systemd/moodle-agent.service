@@ -1,0 +1,21 @@
+[Unit]
+Description=Moodle MCP Server for Hermes AI Agent
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=pi
+Group=pi
+WorkingDirectory=/home/pi/moodle-agent
+Environment="PATH=/home/pi/moodle-agent/venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+Environment="PYTHONUNBUFFERED=1"
+Environment="HOST=127.0.0.1"
+Environment="PORT=8100"
+Environment="LOG_LEVEL=INFO"
+ExecStart=/home/pi/moodle-agent/venv/bin/python /home/pi/moodle-agent/app/main.py --sse
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
