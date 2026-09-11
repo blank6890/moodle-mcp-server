@@ -31,6 +31,7 @@ async def test_navigate_returns_url_and_html():
     # Mock internals
     manager._context = AsyncMock()
     manager._throttle_lock = AsyncMock()
+    manager._initialized = True
 
     mock_page = AsyncMock()
     mock_page.url = "https://courses.iiit.ac.in/my/"
