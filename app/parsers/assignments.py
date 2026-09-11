@@ -1,21 +1,9 @@
 import logging
-from datetime import datetime
 from bs4 import BeautifulSoup
-from dateutil.parser import parse as parse_date
 from app.models import Assignment
+from app.parsers.utils import parse_date_to_iso
 
 logger = logging.getLogger(__name__)
-
-def _parse_date_to_iso(date_str: str) -> tuple[str | None, str]:
-    """Parse Moodle date string to ISO 8601 and raw fallback."""
-    raw = date_str.strip()
-    try:
-        dt = parse_date(date_str, dayfirst=True)
-        iso = dt.isoformat()
-        return iso, raw
-    except Exception as e:
-        logger.debug(f"Could not parse date '{date_str}': {e}")
-        return None, raw
 
 def parse_assignments(html: str) -> list[Assignment]:
     """Parse assignment lists → list of Assignment models.
@@ -39,7 +27,7 @@ def parse_assignments(html: str) -> list[Assignment]:
 
             due_date_elem = elem.find(class_="due-date") or elem.find(class_="duedate")
             due_date_str = due_date_elem.get_text(strip=True) if due_date_elem else ""
-            due_date, due_date_raw = _parse_date_to_iso(due_date_str)
+            due_date, due_date_raw = parse_date_to_iso(due_date_str)
 
             status_elem = elem.find(class_="status")
             status = status_elem.get_text(strip=True) if status_elem else "unknown"

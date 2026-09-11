@@ -13,7 +13,7 @@ def load_fixture(name: str) -> str:
     """Load a fixture HTML file."""
     path = FIXTURES_DIR / name
     if path.exists():
-        return path.read_text()
+        return path.read_text(encoding="utf-8")
     return "<html></html>"  # Empty fallback
 
 def test_parse_courses():

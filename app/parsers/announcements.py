@@ -1,19 +1,9 @@
 import logging
 from bs4 import BeautifulSoup
-from dateutil.parser import parse as parse_date
 from app.models import Announcement
+from app.parsers.utils import parse_date_to_iso
 
 logger = logging.getLogger(__name__)
-
-def _parse_date_to_iso(date_str: str) -> tuple[str | None, str]:
-    """Parse date string to ISO 8601."""
-    raw = date_str.strip()
-    try:
-        dt = parse_date(date_str, dayfirst=True)
-        iso = dt.isoformat()
-        return iso, raw
-    except Exception:
-        return None, raw
 
 def parse_announcements(html: str) -> list[Announcement]:
     """Parse announcements (forum posts) → list of Announcement models.
@@ -40,7 +30,7 @@ def parse_announcements(html: str) -> list[Announcement]:
 
             date_elem = elem.find(class_="post-date")
             date_str = date_elem.get_text(strip=True) if date_elem else ""
-            date, date_raw = _parse_date_to_iso(date_str)
+            date, date_raw = parse_date_to_iso(date_str)
 
             announcements.append(Announcement(
                 course="",  # CALIBRATE: extract course name if present

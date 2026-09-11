@@ -1,20 +1,9 @@
 import logging
 from bs4 import BeautifulSoup
-from dateutil.parser import parse as parse_date
 from app.models import CalendarEvent
+from app.parsers.utils import parse_date_to_iso_date
 
 logger = logging.getLogger(__name__)
-
-def _parse_date_to_iso(date_str: str) -> tuple[str | None, str]:
-    """Parse Moodle date string to ISO 8601."""
-    raw = date_str.strip()
-    try:
-        dt = parse_date(date_str, dayfirst=True)
-        iso = dt.date().isoformat()
-        return iso, raw
-    except Exception as e:
-        logger.debug(f"Could not parse date '{date_str}': {e}")
-        return None, raw
 
 def parse_calendar(html: str) -> list[CalendarEvent]:
     """Parse calendar page → list of CalendarEvent models.
@@ -35,7 +24,7 @@ def parse_calendar(html: str) -> list[CalendarEvent]:
 
             date_elem = elem.find(class_="event-date") or elem.find(class_="date")
             date_str = date_elem.get_text(strip=True) if date_elem else ""
-            date, date_raw = _parse_date_to_iso(date_str)
+            date, date_raw = parse_date_to_iso_date(date_str)
 
             event_type = "course_event"  # CALIBRATE: detect from content
             course = ""  # CALIBRATE: extract if present
