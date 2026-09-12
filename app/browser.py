@@ -12,10 +12,11 @@ class SessionExpiredError(Exception):
     pass
 
 class BrowserManager:
-    """Manages Playwright persistent browser context with throttling."""
+    """Manages Playwright browser context with throttling."""
 
     def __init__(self, config: Config):
         self.config = config
+        self._browser = None
         self._context = None
         self._playwright = None
         self._throttle_lock = asyncio.Lock()
@@ -39,26 +40,22 @@ class BrowserManager:
         logger.info("Initializing Playwright browser...")
         self._playwright = await async_playwright().start()
 
-        # Determine executable path
         executable_path = None
         if self.config.CHROMIUM_PATH:
             executable_path = self.config.CHROMIUM_PATH
-        else:
-            # Try system Chromium if bundled fails (fallback)
-            try:
-                # Playwright's bundled Chromium
-                executable_path = None  # Let Playwright find it
-            except Exception:
-                logger.warning("Bundled Chromium not found, trying system Chromium")
-                executable_path = "/usr/bin/chromium"
 
-        # Launch persistent context
-        self._context = await self._playwright.chromium.launch_persistent_context(
-            user_data_dir=str(self.config.SESSION_DIR),
+        self._browser = await self._playwright.chromium.launch(
             headless=True,
-            viewport={"width": 1280, "height": 720},
             args=["--disable-gpu"],
             executable_path=executable_path,
+        )
+
+        state_file = Path(self.config.SESSION_DIR) / "state.json"
+        storage_state_arg = str(state_file) if state_file.exists() else None
+
+        self._context = await self._browser.new_context(
+            viewport={"width": 1280, "height": 720},
+            storage_state=storage_state_arg
         )
 
         self._initialized = True
@@ -69,6 +66,9 @@ class BrowserManager:
         if self._context:
             await self._context.close()
             logger.info("Browser context closed")
+            
+        if self._browser:
+            await self._browser.close()
 
         if self._playwright:
             await self._playwright.stop()
@@ -77,12 +77,9 @@ class BrowserManager:
         self._initialized = False
 
     async def navigate(self, url: str) -> Tuple[str, str]:
-        """Navigate to URL with throttling. Returns (final_url, page_html).
-
-        Raises SessionExpiredError if redirected to CAS login.
-        """
+        """Navigate to URL with throttling. Returns (final_url, page_html)."""
         if not self._initialized:
-            raise RuntimeError("Browser not initialized. Use 'async with BrowserManager(config) as mgr'")
+            raise RuntimeError("Browser not initialized")
 
         # Apply throttling
         async with self._throttle_lock:
@@ -92,18 +89,26 @@ class BrowserManager:
                 await asyncio.sleep(self.config.THROTTLE_DELAY - elapsed)
             self._last_request_time = time.time()
 
-        # Navigate
         page = await self._context.new_page()
         try:
             await page.goto(url, wait_until="domcontentloaded")
             final_url = page.url
 
-            # Check for CAS redirect (session expired)
             if "login.iiit.ac.in" in final_url or "/login/" in final_url:
                 logger.warning(f"Session expired: redirected to {final_url}")
                 raise SessionExpiredError(f"Redirected to CAS login at {final_url}")
 
-            # Get HTML
+            # Wait briefly for common JS to render key elements if they exist
+            try:
+                if "/my/courses.php" in url:
+                    await page.wait_for_selector(".coursename", timeout=5000)
+                elif "/mod/assign/" in url:
+                    await page.wait_for_selector(".generaltable", timeout=5000)
+                else:
+                    await page.wait_for_timeout(1000)  # general short wait for JS execution
+            except Exception:
+                pass  # Ignore timeout if the element doesn't appear
+
             html = await page.content()
             logger.debug(f"Navigated to {final_url}")
 
@@ -115,9 +120,6 @@ class BrowserManager:
         """Get the current page URL."""
         if not self._initialized:
             raise RuntimeError("Browser not initialized")
-
-        # Simplified: return last known URL
-        # In production, you might track this differently
         return self.config.MOODLE_BASE_URL
 
     async def is_initialized(self) -> bool:

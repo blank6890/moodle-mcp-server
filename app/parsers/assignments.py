@@ -1,4 +1,6 @@
 import logging
+import html as html_lib
+import re
 from bs4 import BeautifulSoup
 from app.models import Assignment
 from app.parsers.utils import parse_date_to_iso
@@ -6,38 +8,46 @@ from app.parsers.utils import parse_date_to_iso
 logger = logging.getLogger(__name__)
 
 def parse_assignments(html: str) -> list[Assignment]:
-    """Parse assignment lists → list of Assignment models.
-
-    CALIBRATE: Update selectors from real /mod/assign/index.php or timeline HTML.
-    """
+    """Parse assignment lists → list of Assignment models."""
     soup = BeautifulSoup(html, "html.parser")
     assignments = []
 
-    # CALIBRATE: Find real selectors
-    assignment_elements = soup.select(".assignment-item, [data-assignment-id]")
+    # Select assignment rows from Moodle 4 assign index table
+    assignment_links = soup.find_all('a', class_='activityname')
 
-    for elem in assignment_elements:
+    for link in assignment_links:
         try:
-            name = elem.find(class_="name") or elem.find("a")
-            if not name:
+            name_text = html_lib.unescape(link.get_text(strip=True))
+            url = link.get("href", "")
+
+            # The parent tr contains the due date and submission status
+            row = link.find_parent('tr')
+            if not row:
                 continue
 
-            name_text = name.get_text(strip=True)
-            url = name.get("href", "") if name.name == "a" else ""
+            cells = row.find_all('td')
+            # Depending on Moodle configuration, cells could be:
+            # [0] Name, [1] Due Date, [2] Status or similar
+            if len(cells) >= 3:
+                # Often the submission status is the last cell, and due date is the second to last.
+                due_date_str = cells[-2].get_text(strip=True)
+                status_raw = cells[-1].get_text(strip=True)
+            elif len(cells) == 2:
+                # Sometimes only 2 columns: Name, Due Date
+                due_date_str = cells[-1].get_text(strip=True)
+                status_raw = "unknown"
+            else:
+                due_date_str = ""
+                status_raw = "unknown"
 
-            due_date_elem = elem.find(class_="due-date") or elem.find(class_="duedate")
-            due_date_str = due_date_elem.get_text(strip=True) if due_date_elem else ""
             due_date, due_date_raw = parse_date_to_iso(due_date_str)
 
-            status_elem = elem.find(class_="status")
-            status = status_elem.get_text(strip=True) if status_elem else "unknown"
-
             assignments.append(Assignment(
-                course="",  # Will be filled by orchestrator
+                course="",  # Orchestrator handles mapping or this is returned directly
                 name=name_text,
                 due_date=due_date,
-                due_date_raw=due_date_raw,
-                status=status,
+                due_date_raw=due_date_raw or due_date_str,
+                status=status_raw,
                 url=url
             ))
         except Exception as e:

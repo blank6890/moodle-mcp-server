@@ -1,33 +1,50 @@
 import logging
+import urllib.parse
+import html as html_lib
 from bs4 import BeautifulSoup
 from app.models import Course
 
 logger = logging.getLogger(__name__)
 
 def parse_courses(html: str) -> list[Course]:
-    """Parse /my/courses.php → list of Course models.
-
-    CALIBRATE: Find actual selectors after inspecting real HTML.
-    """
+    """Parse /my/courses.php → list of Course models."""
     soup = BeautifulSoup(html, "html.parser")
     courses = []
 
-    # CALIBRATE: Update with real selectors from courses page
-    # Expected: course cards/list items with id, name, url
-    course_elements = soup.select(".course-card, [data-course-id]")
+    # Moodle 4.x dashboard course links
+    course_links = soup.find_all('a', class_='coursename')
 
-    for elem in course_elements:
+    for link in course_links:
         try:
-            course_id = elem.get("data-course-id") or elem.get("data-id")
-            course_name = elem.get_text(strip=True)
-            course_url = elem.find("a")
+            url = link.get("href", "")
+            if not url:
+                continue
 
-            if course_id and course_name and course_url:
-                courses.append(Course(
-                    id=str(course_id),
-                    name=course_name,
-                    url=course_url.get("href", "")
-                ))
+            # Extract course ID from URL query parameters
+            query = urllib.parse.urlparse(url).query
+            params = urllib.parse.parse_qs(query)
+            course_id = params.get('id', [None])[0]
+
+            if not course_id:
+                continue
+
+            # Try to get the name from the multiline span, fallback to cleaning up the text
+            name_span = link.find('span', class_='multiline')
+            if name_span:
+                # get text from the visible part or title attribute
+                course_name = name_span.get('title')
+                if not course_name:
+                    course_name = name_span.get_text(strip=True)
+            else:
+                # fallback text extraction if structure differs
+                course_name = link.get_text(strip=True)
+                course_name = course_name.replace('Course is starred', '').replace('Course name', '').strip()
+
+            courses.append(Course(
+                id=str(course_id),
+                name=html_lib.unescape(course_name),
+                url=url
+            ))
         except Exception as e:
             logger.warning(f"Failed to parse course element: {e}")
 
