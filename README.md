@@ -11,7 +11,7 @@ A read-only MCP (Model Context Protocol) server for IIIT Hyderabad's Moodle inst
 - `get_assignments` — Assignments with due dates, status, and submission URLs
 - `get_calendar` — Upcoming calendar events with event types
 
-### Phase 2: Enhanced Tools (Planned)
+### Phase 2: Enhanced Tools ✓
 - `get_course` — Full course detail with sections, resources, and tabs
 - `get_announcements` — Course and site-wide announcements
 - `get_course_materials` — Lectures, files, and links organized by section
@@ -382,9 +382,8 @@ pytest --cov=app tests/
 ## Next Steps
 
 1. **Calibrate Selectors** — Run `scripts/inspect.py` on each page type and update parsers
-2. **Phase 2 Tools** — Implement enhanced tools (get_course, get_announcements, etc.)
-3. **Systemd Integration** — Install as systemd service for persistent SSE mode (optional)
-4. **Hermes Integration** — Configure Hermes to use this MCP server
+2. **Phase 3 Tools** — Implement optional future tools (get_grades, search_courses, etc.)
+3. **Hermes Integration** — Configure Hermes AI Agent to use this MCP server natively
 
 ## License
 
