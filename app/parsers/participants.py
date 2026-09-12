@@ -19,7 +19,7 @@ def parse_participants(html: str) -> list[Participant]:
         try:
             name_elem = row.find(class_="username") or row.find("a")
             name = name_elem.get_text(strip=True) if name_elem else ""
-            profile_url = name_elem.get("href", "") if name_elem and name_elem.name == "a" else ""
+            profile_url = name_elem.get("href") or None if name_elem and name_elem.name == "a" else None
 
             role_elem = row.find(class_="role") or row.select_one("td:nth-of-type(4)")
             role = role_elem.get_text(strip=True).lower() if role_elem else "student"

@@ -54,3 +54,9 @@ def test_parse_participants():
     html = load_fixture("participants.html")
     participants = parse_participants(html)
     assert isinstance(participants, list)
+    assert len(participants) == 2
+    assert participants[0].name == "Alice Smith"
+    assert participants[0].role == "student"
+    assert participants[0].profile_url == "https://courses.iiit.ac.in/user/profile.php?id=1234"
+    assert participants[1].name == "Bob Jones"
+    assert participants[1].role == "teacher"
