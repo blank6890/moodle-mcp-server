@@ -20,3 +20,8 @@ Thumbs.db
 .vscode/
 .idea/
 *.swp
+.claude/
+moodle-features-inventory.html
+patch.py
+update.py
+update_ledger.py
