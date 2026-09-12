@@ -101,13 +101,13 @@ class BrowserManager:
             # Wait briefly for common JS to render key elements if they exist
             try:
                 if "/my/courses.php" in url:
-                    await page.wait_for_selector(".coursename", timeout=5000)
+                    await page.wait_for_selector(".coursename", timeout=15000)
                 elif "/mod/assign/" in url:
-                    await page.wait_for_selector(".generaltable", timeout=5000)
+                    await page.wait_for_selector(".generaltable", timeout=15000)
                 else:
                     await page.wait_for_timeout(1000)  # general short wait for JS execution
-            except Exception:
-                pass  # Ignore timeout if the element doesn't appear
+            except Exception as e:
+                logger.warning(f"Timeout waiting for dynamic selector in {url}: {e}")
 
             html = await page.content()
             logger.debug(f"Navigated to {final_url}")
