@@ -1,5 +1,7 @@
 # Moodle MCP Server
 
+[![M8ven Score](https://m8ven.ai/badge/mcp/blank6890/moodle-mcp-server)](https://m8ven.ai/mcp/blank6890/moodle-mcp-server)
+
 A read-only MCP (Model Context Protocol) server for IIIT Hyderabad's Moodle instance. Exposes courses, assignments, calendar events, announcements, and more via browser automation with persistent CAS-authenticated sessions.
 
 ## Features
