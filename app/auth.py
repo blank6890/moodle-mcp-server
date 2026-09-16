@@ -1,25 +1,24 @@
 import logging
+from typing import Optional
 from app.browser import BrowserManager, SessionExpiredError
+from app.http_client import HttpClientManager
 from app.models import SessionStatus
 
 logger = logging.getLogger(__name__)
 
-async def check_session(browser: BrowserManager) -> SessionStatus:
-    """Check if the browser session is authenticated.
-
-    Navigates to dashboard and checks if we land on Moodle or CAS.
-    Raises SessionExpiredError if session has expired.
-
-    Returns:
-        SessionStatus with authenticated=True if on Moodle, False otherwise.
-
-    Raises:
-        SessionExpiredError if redirected to CAS login.
-    """
+async def check_session(
+    browser: Optional[BrowserManager] = None,
+    http_client: Optional[HttpClientManager] = None
+) -> SessionStatus:
+    """Check if the session is authenticated via fast HTTP or fallback browser."""
     try:
-        final_url, html = await browser.navigate("https://courses.iiit.ac.in/my/")
+        if http_client is not None:
+            final_url, html = await http_client.get("https://courses.iiit.ac.in/my/")
+        elif browser is not None:
+            final_url, html = await browser.navigate("https://courses.iiit.ac.in/my/")
+        else:
+            raise RuntimeError("Neither http_client nor browser provided for check_session")
 
-        # If we get here, we're on Moodle (no CAS redirect)
         if "dashboard" in html.lower() or "moodle" in html.lower():
             logger.info("Session is authenticated")
             return SessionStatus(
@@ -27,9 +26,9 @@ async def check_session(browser: BrowserManager) -> SessionStatus:
                 detail="Authenticated: session is active"
             )
         else:
-            logger.warning("Session check: unclear state")
+            logger.warning("Session check: unclear state on Moodle domain")
             return SessionStatus(
-                authenticated=True,  # Optimistic: we're on Moodle domain
+                authenticated=True,
                 detail="Session appears active (on Moodle domain)"
             )
 

@@ -19,9 +19,13 @@ class Config:
         self.SESSION_DIR.mkdir(parents=True, exist_ok=True)
         self.CACHE_DIR.mkdir(parents=True, exist_ok=True)
 
-        # Performance
+        # Performance & Timeouts
         self.CACHE_TTL: int = int(os.getenv("CACHE_TTL", "300"))
-        self.THROTTLE_DELAY: float = float(os.getenv("THROTTLE_DELAY", "1.0"))
+        self.CACHE_TTL_COURSES: int = int(os.getenv("CACHE_TTL_COURSES", "600"))
+        self.CACHE_TTL_CALENDAR: int = int(os.getenv("CACHE_TTL_CALENDAR", "180"))
+        self.THROTTLE_DELAY: float = float(os.getenv("THROTTLE_DELAY", "0.1"))
+        self.HTTP_TIMEOUT: float = float(os.getenv("HTTP_TIMEOUT", "10.0"))
+        self.ENABLE_HTTP_FIRST: bool = os.getenv("ENABLE_HTTP_FIRST", "true").lower() in ("true", "1", "yes")
 
         # Browser
         self.CHROMIUM_PATH: Optional[str] = os.getenv("CHROMIUM_PATH")
@@ -32,5 +36,6 @@ class Config:
     def __repr__(self):
         return (
             f"Config(HOST={self.HOST}, PORT={self.PORT}, "
-            f"MOODLE={self.MOODLE_BASE_URL}, CACHE_TTL={self.CACHE_TTL})"
+            f"MOODLE={self.MOODLE_BASE_URL}, CACHE_TTL={self.CACHE_TTL}, "
+            f"HTTP_FIRST={self.ENABLE_HTTP_FIRST})"
         )

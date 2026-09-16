@@ -26,3 +26,4 @@ patch.py
 update.py
 update_ledger.py
 .playwright-mcp/
+test_playwright.py

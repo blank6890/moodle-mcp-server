@@ -13,8 +13,11 @@ except ImportError:
     # Fallback if mcp.server doesn't have MCPServer (e.g. FastMCP is the real one)
     from mcp.server.fastmcp import FastMCP as MCPServer
 
+from mcp.types import ToolAnnotations
+
 from app.config import Config
 from app.browser import BrowserManager, SessionExpiredError
+from app.http_client import HttpClientManager
 from app.auth import check_session as check_auth_session
 from app.moodle import MoodleService
 from app.logging_config import setup_logging
@@ -24,41 +27,50 @@ logger = logging.getLogger(__name__)
 # Global state
 _config: Optional[Config] = None
 _browser: Optional[BrowserManager] = None
+_http_client: Optional[HttpClientManager] = None
 _moodle: Optional[MoodleService] = None
 _start_time: float = time.time()
 
 async def _init_globals():
-    """Initialize global browser and service on first tool call."""
-    global _config, _browser, _moodle
-    
+    """Initialize global clients and service on first tool call."""
+    global _config, _browser, _http_client, _moodle
+
     if _moodle is not None:
         return
-    
+
     _config = Config()
+    _http_client = HttpClientManager(_config)
     _browser = BrowserManager(_config)
-    await _browser._init_browser()
-    _moodle = MoodleService(_browser, _config)
+    _moodle = MoodleService(_browser, _config, http_client=_http_client)
+
+# Read-only query tool annotations compliant with MCP specifications
+READ_ONLY_TOOL_ANNOTATIONS = ToolAnnotations(
+    readOnlyHint=True,
+    destructiveHint=False,
+    idempotentHint=True,
+    openWorldHint=True,
+)
 
 def create_mcp_server() -> MCPServer:
     """Create and configure MCP server with Phase 1 tools."""
-    
+
     server = MCPServer("moodle-agent")
-    
-    @server.tool()
+
+    @server.tool(annotations=READ_ONLY_TOOL_ANNOTATIONS)
     async def check_health() -> dict:
         """Check service health and authentication status."""
         try:
             await _init_globals()
             uptime = time.time() - _start_time
-            
+
             try:
-                status_obj = await check_auth_session(_browser)
+                status_obj = await check_auth_session(browser=_browser, http_client=_http_client)
                 authenticated = status_obj.authenticated
                 detail = status_obj.detail
             except SessionExpiredError:
                 authenticated = False
                 detail = "Session expired"
-            
+
             return {
                 "status": "healthy",
                 "authenticated": authenticated,
@@ -73,13 +85,13 @@ def create_mcp_server() -> MCPServer:
                 "uptime_seconds": time.time() - _start_time,
                 "detail": str(e)
             }
-    
-    @server.tool()
+
+    @server.tool(annotations=READ_ONLY_TOOL_ANNOTATIONS)
     async def check_session() -> dict:
         """Check if session is authenticated. Never returns cookies/tokens."""
         try:
             await _init_globals()
-            status_obj = await check_auth_session(_browser)
+            status_obj = await check_auth_session(browser=_browser, http_client=_http_client)
             return {
                 "authenticated": status_obj.authenticated,
                 "detail": status_obj.detail
@@ -95,8 +107,8 @@ def create_mcp_server() -> MCPServer:
                 "authenticated": False,
                 "detail": f"Error checking session: {e}"
             }
-    
-    @server.tool()
+
+    @server.tool(annotations=READ_ONLY_TOOL_ANNOTATIONS)
     async def get_courses() -> list:
         """Get enrolled courses."""
         try:
@@ -108,8 +120,8 @@ def create_mcp_server() -> MCPServer:
         except Exception as e:
             logger.error(f"get_courses failed: {e}")
             raise
-    
-    @server.tool()
+
+    @server.tool(annotations=READ_ONLY_TOOL_ANNOTATIONS)
     async def get_assignments(course_id: Optional[str] = None) -> list:
         """Get assignments optionally filtered by course."""
         try:
@@ -121,8 +133,8 @@ def create_mcp_server() -> MCPServer:
         except Exception as e:
             logger.error(f"get_assignments failed: {e}")
             raise
-    
-    @server.tool()
+
+    @server.tool(annotations=READ_ONLY_TOOL_ANNOTATIONS)
     async def get_calendar(days_ahead: int = 30) -> list:
         """Get upcoming calendar events."""
         try:
@@ -134,8 +146,8 @@ def create_mcp_server() -> MCPServer:
         except Exception as e:
             logger.error(f"get_calendar failed: {e}")
             raise
-    
-    @server.tool()
+
+    @server.tool(annotations=READ_ONLY_TOOL_ANNOTATIONS)
     async def get_course(course_id: str) -> dict:
         """Get full course detail with sections and resources."""
         try:
@@ -148,7 +160,7 @@ def create_mcp_server() -> MCPServer:
             logger.error(f"get_course failed: {e}")
             raise
 
-    @server.tool()
+    @server.tool(annotations=READ_ONLY_TOOL_ANNOTATIONS)
     async def get_course_materials(course_id: str) -> list:
         """Get organized course materials and lectures by section."""
         try:
@@ -161,7 +173,7 @@ def create_mcp_server() -> MCPServer:
             logger.error(f"get_course_materials failed: {e}")
             raise
 
-    @server.tool()
+    @server.tool(annotations=READ_ONLY_TOOL_ANNOTATIONS)
     async def get_announcements(course_id: Optional[str] = None, limit: int = 20) -> list:
         """Get recent announcements from a course or site-wide."""
         try:
@@ -174,7 +186,7 @@ def create_mcp_server() -> MCPServer:
             logger.error(f"get_announcements failed: {e}")
             raise
 
-    @server.tool()
+    @server.tool(annotations=READ_ONLY_TOOL_ANNOTATIONS)
     async def get_participants(course_id: str) -> list:
         """Get enrolled participants and instructors in a course."""
         try:

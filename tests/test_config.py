@@ -9,8 +9,17 @@ def test_config_defaults():
     assert config.MOODLE_BASE_URL == "https://courses.iiit.ac.in"
     assert config.CAS_LOGIN_URL == "https://login.iiit.ac.in"
     assert config.CACHE_TTL == 300
-    assert config.THROTTLE_DELAY == 1.0
+    assert config.THROTTLE_DELAY == 0.1
     assert config.LOG_LEVEL == "INFO"
+
+def test_config_latency_optimization_defaults():
+    from app.config import Config
+    config = Config()
+    assert config.HTTP_TIMEOUT == 10.0
+    assert config.ENABLE_HTTP_FIRST is True
+    assert config.THROTTLE_DELAY == 0.1
+    assert config.CACHE_TTL_COURSES == 600
+    assert config.CACHE_TTL_CALENDAR == 180
 
 def test_config_env_override():
     """Test that env vars override defaults."""
