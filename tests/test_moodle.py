@@ -117,3 +117,23 @@ async def test_moodle_service_get_participants():
         assert len(users) == 1
         assert users[0].name == "Alice"
         assert mock_http.get.call_count == 1
+
+@pytest.mark.asyncio
+async def test_moodle_service_get_participants_requests_full_roster():
+    """get_participants must not rely on Moodle's default 20-per-page
+    listing, which silently truncated larger courses' rosters (and could
+    exclude the instructor/TA depending on sort order). Assert the
+    request asks for a page size large enough to cover any course."""
+    config = Config()
+    mock_browser = AsyncMock()
+    mock_http = AsyncMock()
+    mock_http.get.return_value = ("https://courses.iiit.ac.in/user/index.php?id=101", "<html>Users</html>")
+
+    service = MoodleService(browser=mock_browser, config=config, http_client=mock_http)
+    with patch("app.parsers.participants.parse_participants") as mock_parse:
+        mock_parse.return_value = []
+        await service.get_participants("101")
+
+        requested_url = mock_http.get.call_args[0][0]
+        assert "id=101" in requested_url
+        assert "perpage=5000" in requested_url

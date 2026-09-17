@@ -28,6 +28,24 @@ def test_parse_assignments():
     html = load_fixture("assignments.html")
     assignments = parse_assignments(html)
     assert isinstance(assignments, list)
+    assert len(assignments) == 2
+    assert assignments[0].name == "Assignment 1"
+    assert assignments[0].due_date == "2026-09-15T23:59:00"
+    assert assignments[0].due_date_raw == "Monday, 15 September 2026, 11:59 PM"
+    assert assignments[0].status == "Submitted for grading"
+    assert assignments[1].name == "Assignment 2"
+    assert assignments[1].due_date == "2026-09-17T23:59:00"
+    assert assignments[1].status == "No submission"
+
+def test_parse_assignments_extra_columns_do_not_shift_due_date():
+    """A Grade column present alongside Submission must not shift which
+    cell is read as the due date (regression test: previously the parser
+    assumed due date was always the second-to-last column)."""
+    html = load_fixture("assignments.html")
+    assignments = parse_assignments(html)
+    for assignment in assignments:
+        assert assignment.due_date is not None
+        assert assignment.status in ("Submitted for grading", "No submission")
 
 def test_parse_calendar():
     """Test parse_calendar parser."""
@@ -60,3 +78,23 @@ def test_parse_participants():
     assert participants[0].profile_url == "https://courses.iiit.ac.in/user/profile.php?id=1234"
     assert participants[1].name == "Bob Jones"
     assert participants[1].role == "teacher"
+
+def test_parse_participants_with_extra_columns():
+    """Mirrors Moodle's real participants table (id="participants"):
+    - the name cell is a <th scope="row">, not a <td>, so reading only
+      <td> elements silently drops a column and shifts every later index
+      by one (this is what caused Roles to read as "Groups"/"Last
+      access" values in production);
+    - the roster is padded with empty placeholder rows
+      (class="emptyrow") up to whatever `perpage` was requested, which
+      must not be parsed as participants;
+    - the avatar-initials <span> ("J.") inside the name link must not
+      get glued onto the front of the name with no separator."""
+    html = load_fixture("participants_columns.html")
+    participants = parse_participants(html)
+    assert len(participants) == 2
+    assert participants[0].name == "Jordan Alvarez"
+    assert participants[0].role == "teaching assistant"
+    assert participants[0].profile_url == "https://courses.iiit.ac.in/user/view.php?id=9001&course=101"
+    assert participants[1].name == "Priya Menon"
+    assert participants[1].role == "student"
