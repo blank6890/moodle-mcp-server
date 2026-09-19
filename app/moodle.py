@@ -149,7 +149,12 @@ class MoodleService:
         if cached is not None:
             return cached
 
-        html = await self._fetch_html(f"https://courses.iiit.ac.in/user/index.php?id={course_id}")
+        # perpage=5000 avoids Moodle's default 20-per-page pagination,
+        # which was silently truncating rosters on larger courses and
+        # could miss instructor/TA rows entirely depending on sort order.
+        html = await self._fetch_html(
+            f"https://courses.iiit.ac.in/user/index.php?id={course_id}&perpage=5000"
+        )
         participants = participants_parser.parse_participants(html)
         self._set_cache(cache_key, participants)
         return participants
